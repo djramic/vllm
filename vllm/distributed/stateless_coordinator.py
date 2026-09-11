@@ -194,6 +194,11 @@ class StatelessGroupCoordinator(GroupCoordinator):
                 tcp_store_group=self.tcp_store_group,
                 use_all2all=use_all2all,
             )
+            stream = torch.Stream(device=self.device)
+            with stream:
+                warm = torch.zeros(1, dtype=torch.int32, device=self.device)
+                torch.distributed.all_reduce(warm, group=self.device_group)
+                stream.synchronize()
 
         self.mq_broadcaster = None
 
