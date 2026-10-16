@@ -15,6 +15,19 @@ from ...utils import (
 from .._correctness import check_mtp_correctness
 
 
+def _fp8_scaled_mm_unsupported() -> bool:
+    """Whether the FP8 draft lm_head test should be skipped.
+
+    Serving a per-token FP8 linear layer on ROCm requires CDNA3+ or RDNA4,
+    so MI250 (gfx90a) has no kernel for it.
+    """
+    if not current_platform.is_rocm():
+        return False
+    from vllm.platforms.rocm import get_cdna_version, on_gfx12x
+
+    return get_cdna_version() <= 2 and not on_gfx12x()
+
+
 @pytest.mark.parametrize(
     ["model_setup", "mm_enabled", "expected_accuracy_threshold"],
     [
@@ -46,6 +59,10 @@ def test_mtp_correctness(
 
 
 @single_gpu_only
+@pytest.mark.skipif(
+    _fp8_scaled_mm_unsupported(),
+    reason="No FP8 ScaledMM kernel is available on this GPU type.",
+)
 def test_mtp_draft_lm_head_quantization(
     monkeypatch: pytest.MonkeyPatch,
     sampling_config: SamplingParams,
